@@ -61,16 +61,20 @@ results_2 %>%
   summarize(medianFastestLapSpeed = median(fastestLapSpeed, na.rm = TRUE)) %>%
   ggplot(aes(x = factor(year), y = medianFastestLapSpeed, color = medianFastestLapSpeed)) +
   geom_point() +
-  theme_fivethirtyeight() +
+  theme_bw() + 
   scale_color_gradientn(name = "", colours = rev(viridis::viridis(20))) +
   theme(
     axis.text.x = element_text(size = 8, angle = 90, hjust = 1),
-    strip.text.x = element_text(size = 10)
+    axis.text.y = element_text(size = 8), 
+    strip.text.x = element_text(size = 8),
+    plot.subtitle = element_text(hjust = 1, vjust = -217),  
+    axis.title.y = element_blank(),  
+    axis.title.x = element_blank()   
   ) +
-  facet_wrap(~name, ncol = 9, scales = "free_x") +  
+  facet_wrap(~name, ncol = 6, scales = "free_x") +
   labs(
-    title = '(2006-Gunumuze) Pıstlere Gore En Yuksek Hızlar',
-    subtitle = 'Mil/Saat cinsinden hesaplanmıştır'
+    title = 'Pıstlere Gore En Yuksek Hızlar',
+    subtitle = 'Mil/Saat cinsinden hesaplanmıştır',
   ) +
   guides(color = FALSE)
 
@@ -78,23 +82,31 @@ results_2 %>%
 
 #2.Grafik
 results_2 %>% 
-  dplyr::filter(year>2005) %>% 
-  dplyr::group_by(name,year) %>% 
-  summarize(medianFastestLapTimeNum = median(fastestLapTimeNum,na.rm=T)) %>% 
-  ggplot(aes(x=factor(year),y= medianFastestLapTimeNum, color=medianFastestLapTimeNum)) +
-  geom_boxplot(alpha=.25) + theme_fivethirtyeight() + 
-  geom_jitter(shape=16,position=position_jitter(0.2),size=1.5) + 
-  geom_smooth(method='loess',aes(group=1),color='red',lty=2,size=.5) +
-  scale_color_gradientn(name="",colours=rev(viridis::viridis(20))) + 
-  labs(title='Sezon Başına Tur Surelerinin Ortalamaları',
-       subtitle='Saniye cinsinden, bir sezona gore gruplandırılmıştır') + 
-  guides(color = FALSE)
+  dplyr::filter(year > 2005) %>% 
+  dplyr::group_by(name, year) %>% 
+  summarize(medianFastestLapTimeNum = median(fastestLapTimeNum, na.rm = TRUE)) %>% 
+  ggplot(aes(x = factor(year), y = medianFastestLapTimeNum, color = medianFastestLapTimeNum)) +
+  geom_boxplot(alpha = 0.25) +
+  theme_fivethirtyeight() +
+  geom_jitter(shape = 16, position = position_jitter(0.2), size = 3.5) +
+  geom_smooth(method = 'loess', aes(group = 1), color = 'red', lty = 2, size = 0.5) +
+  scale_color_gradientn(name = "", colours = rev(viridis::viridis(20))) +
+  labs(
+    title = 'Sezon Başına Tur Surelerinin Ortalamaları',
+    subtitle = 'Saniye cınsınden, bir sezona gore gruplandırılmıştır'
+  ) +
+  guides(color = FALSE) +
+  theme(
+    axis.text.x = element_text(size = 16),  
+    axis.text.y = element_text(size = 16),  
+    plot.subtitle = element_text(hjust = 1, vjust = 1)  
+  )
 
 
 
 #3.Grafik
 results_2 %>%
-  filter(year >=2006) %>%
+  filter(year >= 2006) %>%
   group_by(name, year) %>%
   summarize(medianFastestLapSpeed = median(fastestLapSpeed, na.rm = TRUE)) %>%
   ggplot(aes(x = factor(year), y = medianFastestLapSpeed, color = medianFastestLapSpeed)) +
@@ -106,48 +118,66 @@ results_2 %>%
     title = 'Yıllara Gore Hız Ortalamaları',
     subtitle = 'Mil/Saat cinsinden hesaplanmıştır'
   ) +
-  guides(color = FALSE)
-
+  guides(color = FALSE) +
+  theme(
+    plot.subtitle = element_text(hjust = 1, vjust = 1),  
+    axis.text.x = element_text(size = 16),  
+    axis.text.y = element_text(size = 16)   
+  )
 
 
 
 #result3 oluşturma
+
+drivers<-read.csv('drivers.csv',sep=',',stringsAsFactors=F)
+drivers$age_driver <- 2017 - sapply(drivers$dob, function(x) as.numeric(strsplit(x,'/')[[1]][3]))
+driversStandings<-read.csv('driver_standings.csv',sep=',',stringsAsFactors=F)
+drivers<-left_join(drivers %>% select(-url), driversStandings,by='driverId')
+
+results_3<-left_join(
+  results, 
+  drivers %>% dplyr::rename(number_drivers = number) %>% select(-points, -position, -positionText),
+  by=c('driverId','raceId')) 
+
+results_3<-left_join(results_3,races %>% select(-time), by='raceId')
+
 temp<-(results_3 %>% filter(position==1) %>% group_by(driverRef) %>% summarize(count=n()) %>% arrange(-count) %>% top_n(10))$driverRef
 results_3$top10<-ifelse(results_3$driverRef %in% temp,results_3$driverRef,'other')
 
+
+
+
 #4.Grafik
-results_3 %>% filter(position==1) %>% group_by(top10,year) %>% 
-  summarize(count=n()) %>% filter(count>0 & year>=1950) %>% 
-# Önce "other" değerlerini içeren gözlemleri filtreleyelim
 filtered_results <- results_3 %>%
   filter(position == 1, !is.na(top10), top10 != "other") %>%
   group_by(top10, year) %>%
   summarize(count = n())
 
-# Şimdi filtrelenmiş verileri kullanarak ggplot grafiğini oluşturalım
 ggplot(filtered_results, aes(x = factor(year), y = count, fill = top10)) +
   geom_bar(position = "fill", stat = "identity") +
-  theme_minimal() +
+  theme_minimal() +  
   theme(legend.position = 'bottom',
-        axis.text.x = element_text(size = 8, angle = 90)) +
+        axis.text.x = element_text(size = 14, angle = 90, hjust = 1),  
+        axis.text.y = element_text(size = 14)) +  
   scale_fill_brewer(name = "", palette = 'Paired') +
   guides(fill = guide_legend(ncol = 25)) +
-  labs(title = 'Yarıslarda En Iyi 10 Surucunun Yıllara Gore Basarı Oranları',
-       subtitle = 'Yalnızca en fazla zafer kazanan ilk 10 surucu ele alınmıştır',x= NULL, y=NULL )
+  labs(title = 'Rekabet Ve Dominasyonun Yıllara Gore Gorsellestirilmesi',
+       subtitle = '1962-2023')
+
+
 
 
 #5.Grafik
-# Verileri oku (dosya yollarını doğru şekilde güncelleyin)
 results <- read.csv("results.csv")
 drivers <- read.csv("drivers.csv")
 constructors <- read.csv("constructors.csv")
 
-# Verileri birleştir
+
 merged_data <- results %>% 
   left_join(drivers, by = "driverId") %>%
   left_join(constructors, by = "constructorId")
 
-# En çok yarış kazanan yarışçıları ve takımları bul
+
 top_winners <- merged_data %>% 
   filter(positionOrder == 1) %>%
   group_by(driverId, forename, surname, name) %>%
@@ -155,7 +185,7 @@ top_winners <- merged_data %>%
   arrange(desc(total_wins)) %>%
   head(10) 
 
-# Görselleştirme
+
 ggplot(top_winners, aes(x = reorder(paste(forename, surname), -total_wins), y = total_wins, fill = name, label = total_wins)) +
   geom_bar(stat = "identity") +
   geom_text(position = position_stack(vjust = 0.5), size = 3) +
@@ -171,7 +201,6 @@ ggplot(top_winners, aes(x = reorder(paste(forename, surname), -total_wins), y = 
         legend.position = "top") +
   
   coord_flip()
-
 
 
 
